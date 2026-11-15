@@ -20,7 +20,7 @@ class CaseEngine(
     private val frontendPort: Int,
     val host: String,
     private val onFailure: (CaseEngine, Throwable) -> Unit,
-) {
+) : SubStoreEngine {
     private val backendDir: File
     private var httpServer: SubCaseHttpServer? = null
 
@@ -29,7 +29,7 @@ class CaseEngine(
         backendDir = BackendFiles.directory(context)
     }
 
-    fun startServer() {
+    override fun startServer() {
         check(httpServer == null) { "Sub-Store server 已启动" }
         httpServer = SubCaseHttpServer(
             host = host,
@@ -42,7 +42,7 @@ class CaseEngine(
         httpServer!!.start()
     }
 
-    fun stopServer() {
+    override fun stopServer() {
         check(Looper.myLooper() == Looper.getMainLooper()) { "CaseEngine 必须在主线程停止" }
         try {
             httpServer?.stop()

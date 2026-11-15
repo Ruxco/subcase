@@ -16,6 +16,9 @@
     @android.webkit.JavascriptInterface <methods>;
 }
 
+# Javet 通过 JNI 和反射访问自己的类型，不能被裁剪或重命名。
+-keep class com.caoccao.javet.** { *; }
+
 # Ktor 仅在 JVM 调试器探测分支引用 java.lang.management，Android 运行时不会进入该分支。
 -dontwarn java.lang.management.**
 

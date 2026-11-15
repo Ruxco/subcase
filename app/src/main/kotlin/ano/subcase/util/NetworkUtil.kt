@@ -9,7 +9,10 @@ import ano.subcase.caseApp
 import timber.log.Timber
 import java.net.Inet4Address
 import java.net.InetAddress
+import java.net.InetSocketAddress
 import java.net.NetworkInterface
+import java.net.ServerSocket
+import java.net.Socket
 import java.util.Enumeration
 
 object NetworkUtil {
@@ -106,6 +109,27 @@ object NetworkUtil {
             ex.printStackTrace()
         }
         return null
+    }
+
+    /** 启动 Node 引擎前预检端口，避免 Node 的 EADDRINUSE 被吞掉后服务假运行。 */
+    fun isPortAvailable(host: String, port: Int): Boolean = try {
+        ServerSocket().use { socket ->
+            socket.reuseAddress = true
+            socket.bind(InetSocketAddress(host, port), 1)
+        }
+        true
+    } catch (_: Exception) {
+        false
+    }
+
+    /** Node 引擎的 HTTP 服务是否已经可以接受连接。 */
+    fun isPortOpen(port: Int, host: String = "127.0.0.1"): Boolean = try {
+        Socket().use { socket ->
+            socket.connect(InetSocketAddress(host, port), 300)
+        }
+        true
+    } catch (_: Exception) {
+        false
     }
 
 }

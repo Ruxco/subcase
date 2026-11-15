@@ -2,10 +2,6 @@ plugins {
     alias(libs.plugins.androidApplication)
     alias(libs.plugins.compose.compiler)
     id("org.lsposed.lsplugin.apksign") version "1.4"
-
-    // Google Firebase Crashlytics
-    id("com.google.gms.google-services")
-    id("com.google.firebase.crashlytics")
 }
 
 apksign {
@@ -48,12 +44,14 @@ android {
         }
 
         ndk {
+            // 默认只打 arm64；本地用 x86_64 模拟器调试时传 -PsubcaseIncludeX86=true。
+            val includeX86 = (findProperty("subcaseIncludeX86") as String?)?.toBoolean() == true
             abiFilters.addAll(
-                arrayOf(
-                    //"armeabi-v7a",
-                    "arm64-v8a",
-                    // "x86", "x86_64"
-                )
+                if (includeX86) {
+                    arrayOf("arm64-v8a", "x86_64")
+                } else {
+                    arrayOf("arm64-v8a")
+                }
             )
         }
     }
@@ -125,7 +123,6 @@ dependencies {
     implementation(libs.ktor.server.core)
     implementation(libs.ktor.server.cio)
 
-    // Google Firebase Crashlytics
-    implementation(platform(libs.firebase.bom))
-    implementation(libs.firebase.crashlytics.ndk)
+    // Node.js runtime for the optional Node backend engine.
+    implementation(libs.javet.node.android)
 }

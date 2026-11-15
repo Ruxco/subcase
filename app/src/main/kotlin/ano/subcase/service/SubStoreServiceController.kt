@@ -6,7 +6,7 @@ import android.os.Handler
 import android.os.Looper
 import android.widget.Toast
 import androidx.core.content.ContextCompat
-import ano.subcase.util.CrashReporter
+import timber.log.Timber
 
 internal object SubStoreServiceController {
     val store = ServiceStateStore()
@@ -30,7 +30,7 @@ internal object SubStoreServiceController {
     }
 
     fun reportFailure(context: Context, error: Throwable) {
-        CrashReporter.recordException(error)
+        Timber.e(error, "Sub-Store 服务失败")
         Toast.makeText(context, error.message ?: "Sub-Store 服务失败", Toast.LENGTH_LONG).show()
     }
 

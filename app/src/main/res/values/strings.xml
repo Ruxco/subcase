@@ -11,7 +11,6 @@
     <string name="backend">SubStore Backend</string>
     <string name="address">Address</string>
     <string name="allow_lan">Allow Lan</string>
-    <string name="allow_crash_report">Allow crash reporting</string>
     <string name="version">Version</string>
 
     <string name="info_screen">About Subcase</string>
@@ -33,6 +32,14 @@
     <string name="substore_policy_every_48h">Every 48 hours</string>
     <string name="substore_policy_every_7d">Every 7 days</string>
     <string name="substore_update_policy_interval_hint">Interval auto-update only works while the service is running</string>
+
+    <string name="substore_engine_section">Backend engine</string>
+    <string name="substore_engine_footer">Switching engines requires restarting the service. The Node engine runs the official sub-store.bundle.js with a bundled Node.js runtime and supports require/process/Buffer in scripts; the WebView engine emulates the Loon API.</string>
+    <string name="substore_node_engine">Use Node.js backend</string>
+    <string name="substore_engine_current">Engine</string>
+    <string name="substore_engine_switched">Backend engine switched, please restart the service</string>
+    <string name="substore_engine_webview">WebView (Loon API emulation)</string>
+    <string name="substore_engine_node">Node.js (Javet)</string>
 
     <string name="notification_content">Sub-Store server is running</string>
 

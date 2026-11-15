@@ -4,12 +4,15 @@ import android.content.Context
 import android.content.SharedPreferences
 import androidx.core.content.edit
 import ano.subcase.caseApp
-import ano.subcase.util.PreferencesKeys.ALLOW_CRASH_REPORT
 import ano.subcase.util.PreferencesKeys.ALLOW_LAN
 import ano.subcase.util.PreferencesKeys.APP_IS_FIRST_OPEN
 import ano.subcase.util.PreferencesKeys.BACKEND_LOCAL_VER
+import ano.subcase.util.PreferencesKeys.ENGINE_MODE
 import ano.subcase.util.PreferencesKeys.FRONTEND_LOCAL_VER
+import ano.subcase.util.PreferencesKeys.LAST_DATA_ENGINE
+import ano.subcase.util.PreferencesKeys.LAST_NODE_BACKEND_INSTALLED_AT
 import ano.subcase.util.PreferencesKeys.LEGACY_NODE_MIGRATED
+import ano.subcase.util.PreferencesKeys.NODE_BACKEND_LOCAL_VER
 
 object PreferencesKeys {
     const val HOME_PANEL_VERTICAL_FRACTION = "home_panel_vertical_fraction"
@@ -18,10 +21,14 @@ object PreferencesKeys {
     const val APP_IS_FIRST_OPEN = "app_first_open"
 
     const val ALLOW_LAN = "allow_lan"
-    const val ALLOW_CRASH_REPORT = "allow_crash_report"
 
     const val BACKEND_LOCAL_VER = "backend_local_ver"
     const val FRONTEND_LOCAL_VER = "frontend_local_ver"
+
+    const val ENGINE_MODE = "substore_engine_mode"
+    const val NODE_BACKEND_LOCAL_VER = "node_backend_local_ver"
+    const val LAST_NODE_BACKEND_INSTALLED_AT = "last_node_backend_installed_at"
+    const val LAST_DATA_ENGINE = "last_data_engine"
 
     const val SUBSTORE_UPDATE_POLICY = "substore_update_policy"
     const val LAST_FRONTEND_INSTALLED_AT = "last_frontend_installed_at"
@@ -73,12 +80,6 @@ object ConfigStore {
             getInstance().edit { putBoolean(ALLOW_LAN, value) }
         }
 
-    var isAllowCrashReport: Boolean
-        get() = getInstance().getBoolean(ALLOW_CRASH_REPORT, true)
-        set(value) {
-            getInstance().edit { putBoolean(ALLOW_CRASH_REPORT, value) }
-        }
-
     var localFrontendVersion: String
         get() = getInstance().getString(FRONTEND_LOCAL_VER, "")!!
         set(value) {
@@ -89,6 +90,35 @@ object ConfigStore {
         get() = getInstance().getString(BACKEND_LOCAL_VER, "")!!
         set(value) {
             getInstance().edit { putString(BACKEND_LOCAL_VER, value) }
+        }
+
+    var engineMode: SubStoreEngineMode
+        get() = SubStoreEngineMode.fromStored(
+            getInstance().getString(ENGINE_MODE, null),
+        )
+        set(value) {
+            getInstance().edit { putString(ENGINE_MODE, value.name) }
+        }
+
+    var localNodeBackendVersion: String
+        get() = getInstance().getString(NODE_BACKEND_LOCAL_VER, "")!!
+        set(value) {
+            getInstance().edit { putString(NODE_BACKEND_LOCAL_VER, value) }
+        }
+
+    var lastNodeBackendInstalledAt: Long
+        get() = getInstance().getLong(LAST_NODE_BACKEND_INSTALLED_AT, 0L)
+        set(value) {
+            getInstance().edit { putLong(LAST_NODE_BACKEND_INSTALLED_AT, value) }
+        }
+
+    /** 上一次服务启动时数据所在位置；用于在两种引擎之间做一次性迁移。 */
+    var lastDataEngine: SubStoreEngineMode
+        get() = getInstance().getString(LAST_DATA_ENGINE, null)
+            ?.let { stored -> SubStoreEngineMode.entries.firstOrNull { it.name == stored } }
+            ?: SubStoreEngineMode.WEBVIEW
+        set(value) {
+            getInstance().edit { putString(LAST_DATA_ENGINE, value.name) }
         }
 
     var subStoreUpdatePolicy: SubStoreUpdatePolicy

@@ -23,7 +23,7 @@ object AppUtil {
     }
 
     private fun extractFrontendDist() {
-        SubStore.localFrontendVersion = "2.31.2"
+        SubStore.localFrontendVersion = "2.34.2"
 
         val assetManager = caseApp.assets
 

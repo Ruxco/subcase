@@ -11,7 +11,6 @@
     <string name="backend">SubStore 后端</string>
     <string name="address">地址</string>
     <string name="allow_lan">允许局域网访问</string>
-    <string name="allow_crash_report">允许上报崩溃</string>
     <string name="info_screen">关于应用</string>
 
     <string name="version">版本</string>
@@ -33,6 +32,14 @@
     <string name="substore_policy_every_48h">每 48 小时</string>
     <string name="substore_policy_every_7d">每 7 天</string>
     <string name="substore_update_policy_interval_hint">按时间间隔自动更新仅在服务开启时有效</string>
+
+    <string name="substore_engine_section">后端引擎</string>
+    <string name="substore_engine_footer">切换引擎后需要重新启动服务。Node 引擎用内置 Node.js 运行官方 sub-store.bundle.js，脚本里可以使用 require/process/Buffer；WebView 引擎模拟 Loon API。</string>
+    <string name="substore_node_engine">使用 Node.js 后端</string>
+    <string name="substore_engine_current">当前引擎</string>
+    <string name="substore_engine_switched">已切换后端引擎，请重新启动服务</string>
+    <string name="substore_engine_webview">WebView（Loon API 模拟）</string>
+    <string name="substore_engine_node">Node.js（Javet）</string>
 
     <string name="notification_content">Sub-Store 服务运行中</string>
 

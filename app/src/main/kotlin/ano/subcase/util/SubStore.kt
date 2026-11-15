@@ -5,6 +5,7 @@ import androidx.compose.runtime.mutableStateOf
 import ano.subcase.caseApp
 import ano.subcase.engine.BackendFiles
 import ano.subcase.engine.BackendScriptValidator
+import ano.subcase.engine.node.NodeBackendFiles
 import ano.subcase.util.AppUtil.unzip
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
@@ -40,6 +41,38 @@ object SubStore {
             localBackendVersionState.value = value
         }
 
+    private val localNodeBackendVersionState = mutableStateOf(ConfigStore.localNodeBackendVersion)
+    var localNodeBackendVersion: String
+        get() = localNodeBackendVersionState.value
+        set(value) {
+            ConfigStore.localNodeBackendVersion = value
+            localNodeBackendVersionState.value = value
+        }
+
+    private val lastNodeBackendInstalledAtState =
+        mutableStateOf(ConfigStore.lastNodeBackendInstalledAt)
+    var lastNodeBackendInstalledAt: Long
+        get() = lastNodeBackendInstalledAtState.value
+        set(value) {
+            ConfigStore.lastNodeBackendInstalledAt = value
+            lastNodeBackendInstalledAtState.value = value
+        }
+
+    /** 当前引擎对应的后端版本 / 安装时间，设置页使用。 */
+    val activeBackendVersion: String
+        get() = if (ConfigStore.engineMode == SubStoreEngineMode.NODE) {
+            localNodeBackendVersion
+        } else {
+            localBackendVersion
+        }
+
+    val activeBackendInstalledAt: Long
+        get() = if (ConfigStore.engineMode == SubStoreEngineMode.NODE) {
+            lastNodeBackendInstalledAt
+        } else {
+            lastBackendInstalledAt
+        }
+
     private val lastFrontendInstalledAtState = mutableStateOf(ConfigStore.lastFrontendInstalledAt)
     var lastFrontendInstalledAt: Long
         get() = lastFrontendInstalledAtState.value
@@ -57,7 +90,11 @@ object SubStore {
         }
 
     var remoteFrontendVersion = ConfigStore.localFrontendVersion
-    var remoteBackendVersion = ConfigStore.localBackendVersion
+    var remoteBackendVersion = if (ConfigStore.engineMode == SubStoreEngineMode.NODE) {
+        ConfigStore.localNodeBackendVersion
+    } else {
+        ConfigStore.localBackendVersion
+    }
 
     /** 升级用户若没有安装时间，用目录/脚本的 lastModified 补上并落盘。 */
     fun ensureInstallTimestamps() {
@@ -68,12 +105,19 @@ object SubStore {
                 ?.takeIf { it > 0L }
                 ?: System.currentTimeMillis()
         }
-        if (lastBackendInstalledAt <= 0L) {
+        if (lastBackendInstalledAt <= 0L && ConfigStore.localBackendVersion.isNotBlank()) {
             val script = File(
-                BackendFiles.versionDir(caseApp),
+                BackendFiles.versionDir(caseApp, ConfigStore.localBackendVersion),
                 BackendFiles.SCRIPT_NAMES.first(),
             )
             lastBackendInstalledAt = script.takeIf { it.isFile }
+                ?.lastModified()
+                ?.takeIf { it > 0L }
+                ?: System.currentTimeMillis()
+        }
+        if (lastNodeBackendInstalledAt <= 0L && ConfigStore.localNodeBackendVersion.isNotBlank()) {
+            val bundle = NodeBackendFiles.bundleFile(caseApp, ConfigStore.localNodeBackendVersion)
+            lastNodeBackendInstalledAt = bundle.takeIf { it.isFile }
                 ?.lastModified()
                 ?.takeIf { it > 0L }
                 ?: System.currentTimeMillis()
@@ -90,8 +134,12 @@ object SubStore {
         if (remoteFrontendVersion.isNotEmpty() && remoteFrontendVersion != localFrontendVersion) {
             succeeded = updateFrontend(showToast).isSuccess && succeeded
         }
-        if (remoteBackendVersion.isNotEmpty() && remoteBackendVersion != localBackendVersion) {
-            succeeded = updateBackend(showToast).isSuccess && succeeded
+        if (remoteBackendVersion.isNotEmpty() && remoteBackendVersion != activeBackendVersion) {
+            succeeded = if (ConfigStore.engineMode == SubStoreEngineMode.NODE) {
+                updateNodeBackend(showToast).isSuccess && succeeded
+            } else {
+                updateBackend(showToast).isSuccess && succeeded
+            }
         }
         if (succeeded) Result.success(Unit)
         else Result.failure(IllegalStateException("SubStore 更新失败"))
@@ -121,7 +169,7 @@ object SubStore {
 
         val updateAvailable =
             (remoteFrontendVersion.isNotEmpty() && remoteFrontendVersion != localFrontendVersion) ||
-                (remoteBackendVersion.isNotEmpty() && remoteBackendVersion != localBackendVersion)
+                (remoteBackendVersion.isNotEmpty() && remoteBackendVersion != activeBackendVersion)
         if (!updateAvailable && frontendResult.isSuccess && backendResult.isSuccess) {
             toastIf(showToast, "当前已是最新版本")
         }
@@ -174,7 +222,7 @@ object SubStore {
         }
     }
 
-    /** 校验并下载后端脚本到版本目录，成功后切换 localBackendVersion；下一请求即用新脚本，不必重启服务。 */
+    /** 校验并下载 WebView 引擎的 Loon 脚本到版本目录；下一请求即用新脚本，不必重启服务。 */
     private suspend fun updateBackend(showToast: Boolean): Result<Unit> {
         Timber.d("Updating backend to $remoteBackendVersion")
         toastIf(showToast, "正在将后端更新到 v$remoteBackendVersion")
@@ -238,6 +286,63 @@ object SubStore {
         }.onFailure { error ->
             Timber.e(error, "后端更新失败")
             toastIf(showToast, "后端文件更新失败,请检查网络环境")
+        }
+        return result
+    }
+
+    /**
+     * 下载官方 `sub-store.bundle.js` 到 `filesDir/backend-node/<version>/`。
+     * Node 引擎在启动时加载脚本，因此更新后需要重启服务才会生效。
+     */
+    private suspend fun updateNodeBackend(showToast: Boolean): Result<Unit> {
+        val version = remoteBackendVersion
+        Timber.d("Updating Node backend to $version")
+        toastIf(showToast, "正在将 Node 后端更新到 v$version")
+
+        if (version == localNodeBackendVersion) return Result.success(Unit)
+        if (!NodeBackendFiles.isSafeVersion(version)) {
+            return Result.failure(IllegalArgumentException("无效的后端版本号"))
+        }
+
+        val result = withContext(Dispatchers.IO) {
+            runCatching {
+                val cacheDirectory = File(caseApp.cacheDir, "substore-node-update-$version")
+                cacheDirectory.deleteRecursively()
+                check(cacheDirectory.mkdirs()) { "无法创建 Node 后端更新缓存目录" }
+                try {
+                    GithubUtil.downloadFile(
+                        REPO_BACKEND,
+                        version,
+                        NodeBackendFiles.BUNDLE_NAME,
+                        cacheDirectory.absolutePath,
+                    ).getOrThrow()
+                    val downloaded = File(cacheDirectory, NodeBackendFiles.BUNDLE_NAME)
+                    NodeBackendFiles.validate(downloaded).getOrThrow()
+
+                    val target = NodeBackendFiles.versionDir(caseApp, version)
+                    target.deleteRecursively()
+                    check(target.mkdirs()) { "无法创建 Node 后端版本目录" }
+                    Files.move(
+                        downloaded.toPath(),
+                        File(target, NodeBackendFiles.BUNDLE_NAME).toPath(),
+                    )
+
+                    localNodeBackendVersion = version
+                    lastNodeBackendInstalledAt = System.currentTimeMillis()
+                    NodeBackendFiles.deleteOtherVersions(caseApp, version)
+                    Unit
+                } finally {
+                    cacheDirectory.deleteRecursively()
+                }
+            }
+        }
+
+        result.onSuccess {
+            Timber.d("Node backend updated to $version")
+            toastIf(showToast, "Node 后端已更新到 v$version，重启服务后生效")
+        }.onFailure { error ->
+            Timber.e(error, "Node 后端更新失败")
+            toastIf(showToast, "Node 后端更新失败,请检查网络环境")
         }
         return result
     }

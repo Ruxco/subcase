@@ -7,15 +7,23 @@ import androidx.lifecycle.ViewModel
 import ano.subcase.caseApp
 import ano.subcase.service.SubStoreServiceController
 import ano.subcase.util.ConfigStore
+import ano.subcase.util.SubStoreEngineMode
 
 class MainViewModel : ViewModel() {
 
     var allowLan by mutableStateOf(false)
-    var allowCrashReport by mutableStateOf(true)
+    var useNodeEngine by mutableStateOf(false)
 
     init {
         allowLan = ConfigStore.isAllowLan
-        allowCrashReport = ConfigStore.isAllowCrashReport
+        useNodeEngine = ConfigStore.engineMode == SubStoreEngineMode.NODE
+    }
+
+    /** 切换后端引擎；调用方负责停止正在运行的服务。 */
+    fun setEngineMode(node: Boolean) {
+        ConfigStore.engineMode =
+            if (node) SubStoreEngineMode.NODE else SubStoreEngineMode.WEBVIEW
+        useNodeEngine = node
     }
 
     fun startService() {

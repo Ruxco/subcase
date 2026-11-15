@@ -1,7 +1,6 @@
 package ano.subcase.ui
 
 import android.app.Application
-import android.widget.Toast
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import ano.subcase.BuildConfig
@@ -80,11 +79,8 @@ class StartupUpdateViewModel(application: Application) : AndroidViewModel(applic
 
             val appResult = appCheck.await()
             appResult.onFailure { error ->
-                Toast.makeText(
-                    getApplication(),
-                    "检测 App 更新失败：${error.message ?: "未知错误"}",
-                    Toast.LENGTH_LONG,
-                ).show()
+                // fork 尚未发布 release 时 GitHub 会返回 404，静默跳过即可。
+                Timber.w(error, "检测 App 更新失败")
             }
             val release = appResult.getOrNull()?.takeIf {
                 isAppUpdateAvailable(it.versionCode, BuildConfig.VERSION_CODE)

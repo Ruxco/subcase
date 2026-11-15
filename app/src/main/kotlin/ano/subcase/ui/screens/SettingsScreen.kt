@@ -26,6 +26,7 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
@@ -37,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import android.widget.Toast
 import ano.subcase.BuildConfig
 import ano.subcase.GlobalStatus
 import ano.subcase.R
@@ -46,7 +48,6 @@ import ano.subcase.ui.components.SectionDefaults
 import ano.subcase.ui.components.buildSubStoreUrl
 import ano.subcase.ui.theme.Blue
 import ano.subcase.ui.theme.switchColors
-import ano.subcase.util.CrashReporter
 import ano.subcase.util.ConfigStore
 import ano.subcase.util.SubStore
 import ano.subcase.util.SubStoreUpdatePolicy
@@ -90,13 +91,14 @@ fun SettingsScreen(navController: NavController) {
             Spacer(modifier = Modifier.padding(10.dp))
             FrontEndCard(mViewModel)
             Spacer(modifier = Modifier.padding(10.dp))
+            EngineSection(mViewModel)
+            Spacer(modifier = Modifier.padding(10.dp))
             BackEndCard(mViewModel)
             Spacer(modifier = Modifier.padding(10.dp))
             AllowLanSpan(mViewModel)
             Spacer(modifier = Modifier.padding(10.dp))
             SubStoreUpdatePolicySection()
             Spacer(modifier = Modifier.padding(10.dp))
-            AllowCrashReport(mViewModel)
             if (BuildConfig.DEBUG) {
                 Spacer(modifier = Modifier.padding(10.dp))
                 Section(modifier = Modifier.clickable { navController.navigate("debug_screen") }) {
@@ -152,6 +154,39 @@ fun FrontEndCard(mViewModel: MainViewModel) {
 }
 
 @Composable
+fun EngineSection(mViewModel: MainViewModel) {
+    val context = LocalContext.current
+
+    Section(
+        header = stringResource(R.string.substore_engine_section),
+        footer = stringResource(R.string.substore_engine_footer),
+    ) {
+        item {
+            Text(stringResource(R.string.substore_node_engine))
+            Switch(
+                checked = mViewModel.useNodeEngine,
+                onCheckedChange = { enabled ->
+                    mViewModel.setEngineMode(enabled)
+                    // 引擎在服务启动时确定，切换后必须先停掉旧服务。
+                    mViewModel.stopService()
+                    Toast.makeText(
+                        context,
+                        R.string.substore_engine_switched,
+                        Toast.LENGTH_SHORT,
+                    ).show()
+                },
+                colors = switchColors(),
+                modifier = Modifier.scale(0.9f),
+            )
+        }
+        item {
+            Text(stringResource(R.string.substore_engine_current))
+            Text(stringResource(ConfigStore.engineMode.labelRes))
+        }
+    }
+}
+
+@Composable
 fun BackEndCard(mViewModel: MainViewModel) {
     val clipboardManager = LocalClipboardManager.current
     val urlHandler = LocalUriHandler.current
@@ -160,9 +195,13 @@ fun BackEndCard(mViewModel: MainViewModel) {
         header = stringResource(R.string.backend),
         footer = stringResource(
             R.string.substore_last_updated,
-            formatSubStoreInstalledAt(SubStore.lastBackendInstalledAt),
+            formatSubStoreInstalledAt(SubStore.activeBackendInstalledAt),
         ),
     ) {
+        item {
+            Text(stringResource(R.string.substore_engine_current))
+            Text(stringResource(ConfigStore.engineMode.labelRes))
+        }
         item {
             Text(stringResource(R.string.address))
             val host = if (mViewModel.allowLan) GlobalStatus.lanIP.value else "127.0.0.1"
@@ -177,7 +216,7 @@ fun BackEndCard(mViewModel: MainViewModel) {
         item {
             Text(stringResource(R.string.version))
             Text(
-                SubStore.localBackendVersion,
+                SubStore.activeBackendVersion,
                 modifier = Modifier.clickable {
                     urlHandler.openUri("https://github.com/sub-store-org/Sub-Store/releases")
                 },
@@ -293,24 +332,6 @@ private fun SubStoreUpdatePolicySection() {
 }
 
 @Composable
-fun AllowCrashReport(mViewModel: MainViewModel) {
-    Section(footer = "仅在应用崩溃时发送,我们不会收集任何其他信息") {
-        item {
-            Text(stringResource(R.string.allow_crash_report))
-            Switch(
-                checked = mViewModel.allowCrashReport,
-                onCheckedChange = {
-                    CrashReporter.setReportingEnabled(it)
-                    mViewModel.allowCrashReport = it
-                },
-                colors = switchColors(),
-                modifier = Modifier.scale(0.9f),
-            )
-        }
-    }
-}
-
-@Composable
 fun OpenSubStore(mViewModel: MainViewModel) {
     val subStoreUrl = buildSubStoreUrl(
         allowLan = mViewModel.allowLan,
@@ -374,26 +395,12 @@ fun FooterSpan() {
             IconButton(
                 modifier = Modifier.size(iconButtonSize),
                 onClick = {
-                    uriHandler.openUri("https://github.com/angus-cx/SubCase")
+                    uriHandler.openUri("https://github.com/Ruxco/subcase")
                 }
             ) {
                 Icon(
                     painter = painterResource(id = R.drawable.ic_github),
                     contentDescription = "github",
-                    tint = Color.Gray,
-                    modifier = Modifier.size(iconSize),
-                )
-            }
-
-            IconButton(
-                modifier = Modifier.size(iconButtonSize),
-                onClick = {
-                    uriHandler.openUri("https://t.me/sion_channel")
-                }
-            ) {
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_telegram),
-                    contentDescription = "telegram",
                     tint = Color.Gray,
                     modifier = Modifier.size(iconSize),
                 )
